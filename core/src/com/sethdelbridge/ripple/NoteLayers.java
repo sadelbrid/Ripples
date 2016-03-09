@@ -37,7 +37,9 @@ public class NoteLayers {
     }
 
     public boolean noteIsActive(int layer, int note){
-        return rep.get(layer).notes.get(note).strength > 0;
+        return rep
+                .get(layer)
+                .notes.get(note).strength > 0;
     }
 
     public Note getNote(int layer, int note){

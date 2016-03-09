@@ -23,4 +23,5 @@ public abstract class State {
     public abstract void render(ShapeRenderer sr, SpriteBatch sb);
     public abstract void update(float dt);
     public abstract void dispose();
+    public abstract void uponResize();
 }

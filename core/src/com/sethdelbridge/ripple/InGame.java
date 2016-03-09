@@ -1,5 +1,6 @@
 package com.sethdelbridge.ripple;
 
+import com.badlogic.gdx.Application;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
@@ -22,11 +23,13 @@ public class InGame extends State {
     public static int separation =  (int)(RippleGame.WIDTH*.075f);
     public Texture vignette;
     public Texture node;
+    //public Texture pauseButton;
     public float pulseRate = 0;
     public ArrayList<Shimmer> sparkles;
     public Random rand;
     public BeatManager beatManager;
-
+    public ArrayList<Texture> rings;
+    public TouchableManager touchableManager;
     public InGame(GameStateManager gsm){
         super(gsm);
         angleFromCenter = -4;
@@ -37,14 +40,16 @@ public class InGame extends State {
         pulses = new ArrayList<>();
 
         tones = new ArrayList<>();
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("one.wav")));
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("two.wav")));
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("three.wav")));
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("four.wav")));
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("five.wav")));
-        tones.add(Gdx.audio.newSound(Gdx.files.internal("six.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("c.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("d.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("e.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("f.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("g.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("a.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("b.wav")));
+        tones.add(Gdx.audio.newSound(Gdx.files.internal("ch.wav")));
 
-        noteManager = new NoteLayers(6, 6);
+        noteManager = new NoteLayers(6, 8);
         beatManager = new BeatManager(6);
         cam.setToOrtho(false, RippleGame.WIDTH, RippleGame.HEIGHT);
         rand = new Random(System.currentTimeMillis());
@@ -59,6 +64,26 @@ public class InGame extends State {
         vignette = new Texture("vignette.png");
         node = new Texture("node.png");
         Gdx.input.setInputProcessor(new TouchProcessor(this));
+        rings = new ArrayList<>();
+        rings.add(new Texture("ring1.png"));
+        rings.add(new Texture("ring2.png"));
+        rings.add(new Texture("ring3.png"));
+        rings.add(new Texture("ring4.png"));
+        rings.add(new Texture("ring5.png"));
+        rings.add(new Texture("ring6.png"));
+
+        //Touchables
+        touchableManager = new TouchableManager();
+        Texture pauseTexture = new Texture("pausebutton.png");
+        touchableManager.add(new Touchable(0, RippleGame.HEIGHT,
+                0, pauseTexture.getHeight(), pauseTexture, "PAUSE_BUTTON"));
+    }
+
+    @Override
+    public void uponResize(){
+        touchableManager.getTouchableById("PAUSE_BUTTON").getPosition().x = RippleGame.viewport.width*.025f;
+        touchableManager.getTouchableById("PAUSE_BUTTON").getPosition().y = RippleGame.viewport.height - RippleGame.viewport.width*.025f;
+
     }
 
 
@@ -84,6 +109,10 @@ public class InGame extends State {
             if(Math.abs(ripples.get(i).size - layer*separation) < 1){
                 //Layer - 1 hit
                 layer--;
+                if(layer < beatManager.beats.size() && beatManager.beatIsActive(layer)){
+                    //play beat
+                    beatManager.setActive(layer, false);
+                }
                 if(layer < noteManager.numLayers){
                     //Play notes
                     for(int note = 0; note < noteManager.notesPerLayer; note++){
@@ -116,8 +145,12 @@ public class InGame extends State {
 
     @Override
     public void render(ShapeRenderer sr, SpriteBatch sb) {
+        Gdx.gl.glViewport((int)RippleGame.viewport.x, (int)RippleGame.viewport.y,
+                (int)RippleGame.viewport.width, (int)RippleGame.viewport.height);
         float radiusPulse = (float)(5f*Math.sin(pulseRate));
         Gdx.gl.glEnable(GL20.GL_BLEND);
+
+        //DRAW PRIMITIVES//
         sr.setProjectionMatrix(cam.combined);
         sr.setAutoShapeType(true);
         sr.begin();
@@ -131,42 +164,53 @@ public class InGame extends State {
             sr.circle(sparkles.get(i).x, sparkles.get(i).y,
                     (float) Math.abs(Math.sin(Math.PI * sparkles.get(i).life / Shimmer.MAX_LIFE)) * sparkles.get(i).size);
         }
+        sr.end();
 
-        sr.set(ShapeRenderer.ShapeType.Line);
 
-
+        sb.begin();
+        sb.setProjectionMatrix(cam.combined);
         //Draw guide circles
         for (int i = 0; i < noteManager.numLayers; i++) {
-            sr.setColor(1f, 1f, 1f, 1f - (i * (1f/10f)));
-            sr.circle(RippleGame.WIDTH / 2, RippleGame.HEIGHT / 2,
-                    (separation + (i * separation)) + radiusPulse);
-        }
+            sb.setColor(1f, 1f, 1f, 1f - (i * (1f/10f)));
+            float width = rings.get(i).getWidth() + radiusPulse;
+            float height = rings.get(i).getHeight() + radiusPulse;
 
+            sb.draw(rings.get(i), RippleGame.WIDTH/2 - width/2,
+                    RippleGame.HEIGHT/2 - height/2, width, height);
+        }
+        sb.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
         //draw ripples
         for (int i = 0; i < ripples.size(); i++) {
             sr.setColor(1f, 1f, 1f, ripples.get(i).strength/255f);
             sr.circle(RippleGame.WIDTH / 2, RippleGame.HEIGHT / 2, ripples.get(i).size);
         }
-
-
-        //Draw selection
-        for (int i = 0; i < pulses.size(); i++) {
-            sr.setColor(pulses.get(i).strength/255f, pulses.get(i).strength, 1f, pulses.get(i).strength/255f);
-            //sr.circle(RippleGame.WIDTH / 2, RippleGame.HEIGHT / 2, pulses.get(i).position);
-        }
-
-        sr.setColor(Color.WHITE);
-        sr.circle(RippleGame.WIDTH / 2, RippleGame.HEIGHT / 2, selectedDis + radiusPulse);
-
-        //Draw Notes
         sr.end();
+
+
+        //DRAW MUSICAL ELEMENTS//
         sb.begin();
         sb.setProjectionMatrix(cam.combined);
+
+        //Draw beats
+        sb.setColor(Color.BLACK);
+        for(int i = 0; i < beatManager.beats.size(); i++){
+            if(beatManager.beats.get(i).isActive()) {
+                int layer = beatManager.beats.get(i).layer;
+                float width = rings.get(i).getWidth() + radiusPulse;
+                float height = rings.get(i).getHeight() + radiusPulse;
+                sb.draw(rings.get(layer), RippleGame.WIDTH / 2 - width / 2,
+                        RippleGame.HEIGHT / 2 - height / 2, width, height);
+            }
+        }
+        //Draw Notes
         for (int layer = 0; layer < noteManager.numLayers; layer++) {
             for (int note = 0; note < noteManager.rep.get(layer).notes.size(); note++) {
                 if (noteManager.noteIsActive(layer, note) || noteManager.getNote(layer, note).isHit) {
                     float distance = (separation + layer * separation) + radiusPulse;
-                    double angle = Math.PI / 3 * note;
+                    double angle = Math.PI / (double)(noteManager.notesPerLayer/2) * note;
                     double x = RippleGame.WIDTH / 2 + Math.cos(angle) * distance;
                     double y = RippleGame.HEIGHT / 2 + Math.sin(angle) * distance;
                     float size = node.getWidth()*noteManager.getNote(layer, note).scale;
@@ -175,21 +219,56 @@ public class InGame extends State {
                 }
             }
         }
-        sb.setColor(Color.WHITE);
         sb.end();
-        sr.begin(ShapeRenderer.ShapeType.Filled);
 
         //Try placement
         if (angleFromCenter != -4) {
-            sr.setColor(100f/255f, 4f/5f, 100f/255f, .75f);
-            sr.circle((int) (RippleGame.WIDTH / 2 + (Math.cos(angleFromCenter) * (selectedDis + radiusPulse))),
-                    (int) (RippleGame.HEIGHT / 2 + (Math.sin(angleFromCenter) * (selectedDis + radiusPulse))), RippleGame.WIDTH*.05f);
+            if(!touchHelper.multitouch) {
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                sr.begin(ShapeRenderer.ShapeType.Filled);
+                sr.setColor(100f / 255f, 4f / 5f, 100f / 255f, .75f);
+                sr.circle((int) (RippleGame.WIDTH / 2 + (Math.cos(angleFromCenter) * (selectedDis + radiusPulse))),
+                        (int) (RippleGame.HEIGHT / 2 + (Math.sin(angleFromCenter) * (selectedDis + radiusPulse))), RippleGame.WIDTH * .05f);
+                sr.end();
+            }
+            else{
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                sb.begin();
+                sb.setColor(100f / 255f, 4f / 5f, 100f / 255f, .75f);
+                int layer = selectedDis/separation - 1;
+                float width = rings.get(layer).getWidth() + radiusPulse;
+                float height = rings.get(layer).getHeight() + radiusPulse;
+                sb.draw(rings.get(layer), RippleGame.WIDTH / 2 - width / 2,
+                        RippleGame.HEIGHT / 2 - height / 2, width, height);
+                sb.end();
+            }
         }
-        sr.end();
-
-        //Vignette
         sb.begin();
+
+        //Change viewport
+        float tempDensity = Gdx.graphics.getDensity();
+        //if on desktop, use 1
+        if(Gdx.app.getType() == Application.ApplicationType.Desktop) tempDensity = 1;
+
+        Gdx.gl.glViewport(0, 0,
+                (int)(RippleGame.WIDTH * tempDensity), (int)(RippleGame.HEIGHT* tempDensity));
+        //Vignette
+        sb.setColor(Color.WHITE);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+
         sb.setProjectionMatrix(cam.combined);
+
+        //PAUSE
+        Touchable pauseButton = touchableManager.getTouchableById("PAUSE_BUTTON");
+        /*
+        Place anchor on position:
+            x = position - anchor
+            y = position
+         */
+
+        sb.draw(pauseButton.texture, pauseButton.getPosition().x - pauseButton.getAnchor().x,
+                pauseButton.getPosition().y - pauseButton.getAnchor().y);
+
         sb.draw(vignette, 0, 0);
         sb.end();
 
@@ -200,8 +279,11 @@ public class InGame extends State {
         for(int i = 0; i < tones.size(); i++){
             tones.get(i).dispose();
         }
+
+        for(Texture t : rings) t.dispose();
         vignette.dispose();
         node.dispose();
+        touchableManager.dispose();
     }
 
     public class TouchHelper {
@@ -223,12 +305,13 @@ public class InGame extends State {
             touchPointers.add(0);
         }
 
-        public boolean isMultiTouch(){
+
+        public int numPointers(){
             int sum = 0;
             for(Integer i : touchPointers){
                 sum += i;
             }
-            return sum > 1;
+            return sum;
         }
     }
 

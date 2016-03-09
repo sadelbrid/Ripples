@@ -8,13 +8,23 @@ import com.badlogic.gdx.InputProcessor;
  */
 public class TouchProcessor implements InputProcessor {
     private InGame inGame;
+    private boolean addingBeat;
     public TouchProcessor(InGame ig){
         inGame = ig;
+        addingBeat = false;
     }
     
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        Touchable touched = inGame.touchableManager.isTouchableTouched(screenX, screenY);
+        if(touched != null){
+            //Process touched object and return
+            Gdx.app.log("touchable touched", touched.getId());
+        }
+
         if(pointer < 3) inGame.touchHelper.touchPointers.set(pointer, 1);
+        inGame.touchHelper.multitouch = inGame.touchHelper.numPointers() > 1;
+
         inGame.touchHelper.isTouching = true;
         float scaleX = (float) Gdx.graphics.getWidth()/(float)RippleGame.WIDTH;
         float scaleY = (float)Gdx.graphics.getHeight()/(float)RippleGame.HEIGHT;
@@ -36,7 +46,7 @@ public class TouchProcessor implements InputProcessor {
             }
 
             //normalize
-            double subAngle = Math.PI / 3;
+            double subAngle = Math.PI / (double)(inGame.noteManager.notesPerLayer/2);
             inGame.angleFromCenter += subAngle / 2; // Fix this offset
             int noteAngle = (int) (inGame.angleFromCenter / subAngle);
             inGame.angleFromCenter = noteAngle * subAngle;
@@ -50,29 +60,46 @@ public class TouchProcessor implements InputProcessor {
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-        if(pointer < 3) inGame.touchHelper.touchPointers.set(pointer, 0);
         float scaleX = (float)Gdx.graphics.getWidth()/(float)RippleGame.WIDTH;
         float scaleY = (float)Gdx.graphics.getHeight()/(float)RippleGame.HEIGHT;
         inGame.touchHelper.x_pos = (int)(screenX/scaleX);
         inGame.touchHelper.y_pos = (int)(screenY/scaleY);
         inGame.touchHelper.y_pos = RippleGame.HEIGHT - inGame.touchHelper.y_pos;
 
+        boolean placingBeat = false;
+        if(pointer < 3) inGame.touchHelper.touchPointers.set(pointer, 0);
+        //if no fingers touching, multitouch = false
 
-        double dis = Math.sqrt(Math.pow(inGame.touchHelper.x_pos - (RippleGame.WIDTH/2),2)
-                + Math.pow(inGame.touchHelper.y_pos-(RippleGame.HEIGHT/2),2));
-        inGame.touchHelper.isTouching = false;
-        inGame.touchHelper.isDragging = false;
-        inGame.touchHelper.rippleReady = true;
-        if(dis <= inGame.separation*6.5 && dis > inGame.separation/2){
-            //add/remove note selected
-            int layer = inGame.selectedDis/inGame.separation - 1;
-            double note = inGame.angleFromCenter / (Math.PI/3.0);
-            if(note >=6) note = 0;
-            if(inGame.noteManager.noteIsActive(layer, (int)note)) inGame.noteManager.remove(layer, (int)note);
-            else inGame.noteManager.add(layer, (int)note, 1);
-
+        //Act if last finger lifted
+        if(inGame.touchHelper.numPointers() == 0){
+            inGame.touchHelper.isTouching = false;
+            inGame.touchHelper.isDragging = false;
+            inGame.touchHelper.rippleReady = true;
+            double dis = Math.sqrt(Math.pow(inGame.touchHelper.x_pos - (RippleGame.WIDTH/2),2)
+                    + Math.pow(inGame.touchHelper.y_pos-(RippleGame.HEIGHT/2),2));
+            //if multitouch, add beat
+            if(inGame.touchHelper.multitouch){
+                //add beat
+                if(dis <= inGame.separation*6.5 && dis > inGame.separation/2){
+                    Gdx.app.log("adding element", "adding beat");
+                    int layer = inGame.selectedDis/inGame.separation - 1;
+                    inGame.beatManager.setActive(layer,
+                            !inGame.beatManager.beatIsActive(layer));
+                }
+            }
+            else{
+                //add note
+                if(dis <= inGame.separation*6.5 && dis > inGame.separation/2){
+                    Gdx.app.log("adding element", "adding note");
+                    int layer = inGame.selectedDis / inGame.separation - 1;
+                    double note = inGame.angleFromCenter / (Math.PI / (double) (inGame.noteManager.notesPerLayer / 2));
+                    if (note >= inGame.noteManager.notesPerLayer) note = 0;
+                    if (inGame.noteManager.noteIsActive(layer, (int) note)) inGame.noteManager.remove(layer, (int) note);
+                    else inGame.noteManager.add(layer, (int) note, 1);
+                }
+            }
+            inGame.angleFromCenter = -4;
         }
-        inGame.angleFromCenter = -4;
         return false;
     }
 
@@ -98,7 +125,7 @@ public class TouchProcessor implements InputProcessor {
             }
 
             //normalize
-            double subAngle = Math.PI / 3;
+            double subAngle = Math.PI / (double)(inGame.noteManager.notesPerLayer/2);
             inGame.angleFromCenter += subAngle / 2; // Fix this offset
             int noteAngle = (int) (inGame.angleFromCenter / subAngle);
             inGame.angleFromCenter = noteAngle * subAngle;

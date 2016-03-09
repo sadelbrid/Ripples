@@ -7,7 +7,7 @@ public class Beat {
     private boolean live;
     private boolean isHit;
     public float scale;
-    private int layer;
+    public int layer;
     public Beat(int layer){
         this.layer = layer;
         scale = .5f;
@@ -31,5 +31,9 @@ public class Beat {
 
     public boolean isActive(){
         return live;
+    }
+
+    public void setActive(boolean b){
+        live = b;
     }
 }

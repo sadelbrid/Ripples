@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * Created by Seth on 1/18/16.
  */
 public class BeatManager {
-    private ArrayList<Beat> beats;
+    public ArrayList<Beat> beats;
     private ArrayList<Integer> beatsHit;
     private Sound beatSound;
     public BeatManager(int numBeats){
@@ -20,6 +20,10 @@ public class BeatManager {
         }
 
         //beatSound = Gdx.audio.newSound(Gdx.files.internal(""));
+    }
+
+    public void setActive(int layer, boolean a){
+        beats.get(layer).setActive(a);
     }
 
     public void hitBeat(int layer){
